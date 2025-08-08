@@ -1,7 +1,4 @@
 # FDU_GPA_DashBoard_Generated_by_Doubao
-FDU_GPA_DashBoard_Generated_by_Doubao is a GPA tool for Fudan University students, made with Doubao. It simplifies tracking academics: add courses manually or via CSV, view interactive charts (GPA trends, grade distributions), and access key stats. Streamlines FDU students' GPA management.
-
-# FDU_GPA_DashBoard_Generated_by_Doubao
 
 A lightweight, web-based GPA management tool designed specifically for Fudan University (FDU) students. This dashboard helps track, analyze, and visualize academic performance with simplicity and clarity.
 
