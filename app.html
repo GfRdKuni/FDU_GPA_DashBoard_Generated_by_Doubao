@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPA Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3b82f6',
+            secondary: '#64748b',
+            accent: '#10b981',
+            neutral: '#64748b',
+            light: '#f1f5f9',
+            dark: '#1e293b',
+            honor: '#d97706'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .card-shadow {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      .hover-lift {
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .hover-lift:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      }
+      .error-row {
+        background-color: #fee2e2;
+      }
+      .fail-row {
+        background-color: #fee2e2;
+      }
+      .input-error {
+        border-color: #ef4444 !important;
+      }
+      .error-text {
+        color: #ef4444;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+      }
+      .stat-card {
+        transition: all 0.3s ease;
+      }
+      .stat-card:hover {
+        transform: translateY(-5px);
+      }
+      .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-primary to-blue-700 text-white shadow-lg">
+    <div class="container mx-auto px-4 py-8">
+      <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-center mb-2">GPA Dashboard</h1>
+      <p class="text-center text-blue-100 max-w-2xl mx-auto">Comprehensive Academic Performance Analysis Tool</p>
+    </div>
+  </header>
+  
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-8">
+    <!-- Control Panel -->
+    <section class="mb-10">
+      <div class="bg-white rounded-xl p-6 shadow-md hover-lift">
+        <h2 class="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+          <i class="fa fa-cogs mr-2 text-primary"></i> Data Management
+        </h2>
+        
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- CSV Upload -->
+          <div class="flex flex-col">
+            <label for="fileInput" class="text-sm font-medium text-gray-700 mb-2">
+              <i class="fa fa-upload mr-1 text-primary"></i> Upload CSV File
+            </label>
+            <div class="flex items-center">
+              <label class="flex-1 border-2 border-dashed border-gray-300 rounded-lg px-4 py-3 text-center cursor-pointer hover:bg-gray-50 transition-colors">
+                <input id="fileInput" type="file" accept=".csv" class="hidden">
+                <span class="text-sm text-gray-500">Drag file here or click to select</span>
+              </label>
+              <button id="clearDataBtn" class="ml-3 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm">
+                <i class="fa fa-trash mr-1"></i> Clear All
+              </button>
+            </div>
+          </div>
+          
+          <!-- Add Course Button -->
+          <div>
+            <label class="text-sm font-medium text-gray-700 mb-2 block">
+              <i class="fa fa-plus-circle mr-1 text-accent"></i> Add Single Course
+            </label>
+            <button id="addCourseBtn" class="w-full px-4 py-3 bg-accent text-white rounded-lg hover:bg-green-600 transition-colors">
+              <i class="fa fa-plus mr-2"></i> Add New Course
+            </button>
+          </div>
+        </div>
+        
+        <!-- Semester Range Selector - 改进为两行布局 -->
+        <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+          <h3 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+            <i class="fa fa-calendar mr-2 text-primary"></i> Semester Range for Statistics
+          </h3>
+          <div id="semesterRangeError" class="error-text hidden mb-2">Start semester cannot be after end semester</div>
+          <div class="grid grid-cols-1 gap-4">
+            <div>
+              <label for="startSemester" class="block text-xs text-gray-600 mb-1">Start Semester</label>
+              <select id="startSemester" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="all">All Semesters</option>
+              </select>
+            </div>
+            <div>
+              <label for="endSemester" class="block text-xs text-gray-600 mb-1">End Semester</label>
+              <select id="endSemester" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="all">All Semesters</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Statistics Summary -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 stat-card">
+            <p class="text-sm text-gray-500">Total Courses</p>
+            <p id="totalCourses" class="text-2xl font-bold text-primary">0</p>
+          </div>
+          <div class="bg-green-50 p-4 rounded-lg border border-green-100 stat-card">
+            <p class="text-sm text-gray-500">GPA Courses</p>
+            <p id="gpaCourses" class="text-2xl font-bold text-accent">0</p>
+          </div>
+          <div class="bg-purple-50 p-4 rounded-lg border border-purple-100 stat-card">
+            <p class="text-sm text-gray-500">PNP Courses</p>
+            <p id="pnpCourses" class="text-2xl font-bold text-purple-600">0</p>
+          </div>
+          <div class="bg-amber-50 p-4 rounded-lg border border-amber-100 stat-card">
+            <p class="text-sm text-gray-500">Honor Courses</p>
+            <p id="honorCourses" class="text-2xl font-bold text-amber-600">0</p>
+          </div>
+          <div class="bg-rose-50 p-4 rounded-lg border border-rose-100 stat-card">
+            <p class="text-sm text-gray-500">Total Credits</p>
+            <p id="totalCredits" class="text-2xl font-bold text-rose-600">0</p>
+          </div>
+          <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 stat-card">
+            <p class="text-sm text-gray-500">Average GPA</p>
+            <p id="avgGpa" class="text-2xl font-bold text-indigo-600">N/A</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Charts Area -->
+    <section class="mb-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Semester GPA Trend -->
+      <div class="bg-white rounded-xl p-5 shadow-md hover-lift">
+        <h2 class="text-lg font-semibold mb-4 text-gray-700 flex items-center">
+          <i class="fa fa-line-chart mr-2 text-primary"></i> Semester GPA Trend
+        </h2>
+        <div class="h-64">
+          <canvas id="semesterGpaChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- GPA Distribution -->
+      <div class="bg-white rounded-xl p-5 shadow-md hover-lift">
+        <h2 class="text-lg font-semibold mb-4 text-gray-700 flex items-center">
+          <i class="fa fa-bar-chart mr-2 text-primary"></i> GPA Distribution
+        </h2>
+        <div class="h-64">
+          <canvas id="gpaDistributionChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- Grade Distribution -->
+      <div class="bg-white rounded-xl p-5 shadow-md hover-lift">
+        <h2 class="text-lg font-semibold mb-4 text-gray-700 flex items-center">
+          <i class="fa fa-pie-chart mr-2 text-primary"></i> Grade Distribution
+        </h2>
+        <div class="h-64">
+          <canvas id="gradeDistributionChart"></canvas>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Course Table Area -->
+    <section>
+      <div class="bg-white rounded-xl shadow-md overflow-hidden hover-lift">
+        <div class="p-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+            <i class="fa fa-table mr-2 text-primary"></i> Course List
+          </h2>
+          
+          <div class="mt-3 md:mt-0 flex flex-col sm:flex-row gap-3">
+            <div class="relative">
+              <input type="text" id="searchCourses" placeholder="Search courses..." 
+                class="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-full">
+              <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            </div>
+            
+            <select id="filterSemester" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-full sm:w-auto">
+              <option value="all">All Semesters</option>
+            </select>
+            
+            <select id="filterGrade" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-full sm:w-auto">
+              <option value="all">All Grades</option>
+              <option value="A+">A+</option>
+              <option value="A">A</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B">B</option>
+              <option value="B-">B-</option>
+              <option value="C+">C+</option>
+              <option value="C">C</option>
+              <option value="C-">C-</option>
+              <option value="D">D</option>
+              <option value="D-">D-</option>
+              <option value="F">F</option>
+              <option value="P">P</option>
+              <option value="NP">NP</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-gray-50 text-left">
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Semester</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Course Name</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Credits</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Grade</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">GPA</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Type</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Notes</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-sm font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dataTableBody" class="divide-y divide-gray-200">
+              <!-- Table rows will be inserted here -->
+              <tr>
+                <td colspan="9" class="px-6 py-12 text-center text-gray-500">
+                  <i class="fa fa-file-text-o text-4xl mb-3 block opacity-30"></i>
+                  <p>No course data available</p>
+                  <p class="text-sm mt-1">Upload a CSV file or add courses manually</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <!-- Footer -->
+  <footer class="bg-dark text-gray-400 mt-12 py-6">
+    <div class="container mx-auto px-4 text-center text-sm">
+      <p>GPA Dashboard &copy; 2023 | Comprehensive academic performance tracking tool</p>
+    </div>
+  </footer>
+  
+  <!-- Add/Edit Course Modal -->
+  <div id="courseModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl transform transition-all scale-95">
+      <h3 id="modalTitle" class="text-xl font-bold text-gray-800 mb-4">Add New Course</h3>
+      
+      <form id="courseForm">
+        <input type="hidden" id="courseId">
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="semesterYear1" placeholder="Start year" required
+              class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+              min="2000" max="2100">
+            <span class="text-gray-500">-</span>
+            <input type="number" id="semesterYear2" placeholder="End year" required
+              class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+              min="2000" max="2100" readonly>
+            <select id="semesterTerm" required 
+              class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option value="">Term</option>
+              <option value="1">1</option>
+              <option value="暑期">暑期</option>
+              <option value="2">2</option>
+            </select>
+          </div>
+          <p class="error-text hidden" id="semesterError">Please enter valid consecutive years (e.g., 2023 and 2024)</p>
+        </div>
+        
+        <div class="mb-4">
+          <div class="flex justify-between">
+            <label for="course" class="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
+            <div class="flex items-center">
+              <input type="checkbox" id="isHonorCourse" 
+                class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+              <label for="isHonorCourse" class="ml-2 block text-sm text-gray-700">Honor Course</label>
+            </div>
+          </div>
+          <input type="text" id="course" placeholder="e.g., Introduction to Computer Science" required
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label for="credit" class="block text-sm font-medium text-gray-700 mb-1">Credits</label>
+            <input type="number" id="credit" min="0.5" step="0.5" placeholder="e.g., 3" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+          </div>
+          
+          <div>
+            <label for="grade" class="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+            <select id="grade" required 
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option value="">Select grade</option>
+              <option value="A+">A+</option>
+              <option value="A">A</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B">B</option>
+              <option value="B-">B-</option>
+              <option value="C+">C+</option>
+              <option value="C">C</option>
+              <option value="C-">C-</option>
+              <option value="D">D</option>
+              <option value="D-">D-</option>
+              <option value="F">F</option>
+              <option value="P">P (Pass)</option>
+              <option value="NP">NP (No Pass)</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <label for="gpa" class="block text-sm font-medium text-gray-700 mb-1">GPA</label>
+          <input type="number" id="gpa" min="0" max="4" step="0.001" placeholder="e.g., 3.750" 
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+          <p class="text-xs text-gray-500 mt-1" id="gpaRangeHint">Please select a grade first</p>
+        </div>
+        
+        <div class="mb-6">
+          <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <input type="text" id="notes" placeholder="Additional notes" 
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+        </div>
+        
+        <div class="flex justify-end gap-3">
+          <button type="button" id="cancelBtn" 
+            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+          <button type="submit" 
+            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">
+            Save Course
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 hidden"></div>
+  
+  <script>
+    // 全局变量和映射
+    const gradeGpaMap = {
+      "A+": { min: 4.00, max: 4.00, isPnp: false, sortOrder: 1, color: 'rgba(22, 163, 74, 0.8)' },
+      "A": { min: 4.00, max: 4.00, isPnp: false, sortOrder: 2, color: 'rgba(22, 163, 74, 0.6)' },
+      "A-": { min: 3.70, max: 3.80, isPnp: false, sortOrder: 3, color: 'rgba(22, 163, 74, 0.4)' },
+      "B+": { min: 3.30, max: 3.60, isPnp: false, sortOrder: 4, color: 'rgba(59, 130, 246, 0.8)' },
+      "B": { min: 3.00, max: 3.20, isPnp: false, sortOrder: 5, color: 'rgba(59, 130, 246, 0.6)' },
+      "B-": { min: 2.70, max: 2.90, isPnp: false, sortOrder: 6, color: 'rgba(59, 130, 246, 0.4)' },
+      "C+": { min: 2.30, max: 2.60, isPnp: false, sortOrder: 7, color: 'rgba(234, 179, 8, 0.8)' },
+      "C": { min: 2.00, max: 2.20, isPnp: false, sortOrder: 8, color: 'rgba(234, 179, 8, 0.6)' },
+      "C-": { min: 1.70, max: 1.90, isPnp: false, sortOrder: 9, color: 'rgba(234, 179, 8, 0.4)' },
+      "D": { min: 1.30, max: 1.30, isPnp: false, sortOrder: 10, color: 'rgba(249, 115, 22, 0.6)' },
+      "D-": { min: 1.00, max: 1.00, isPnp: false, sortOrder: 11, color: 'rgba(249, 115, 22, 0.4)' },
+      "F": { min: 0.00, max: 0.00, isPnp: false, sortOrder: 12, color: 'rgba(239, 68, 68, 0.6)' },
+      "P": { min: null, max: null, isPnp: true, sortOrder: 13, color: 'rgba(139, 92, 246, 0.6)' },
+      "NP": { min: null, max: null, isPnp: true, sortOrder: 14, color: 'rgba(139, 92, 246, 0.4)' }
+    };
+    
+    let rawData = [];
+    let currentId = 1; // 用于唯一标识课程
+    
+    // DOM元素引用
+    const fileInput = document.getElementById('fileInput');
+    const clearDataBtn = document.getElementById('clearDataBtn');
+    const addCourseBtn = document.getElementById('addCourseBtn');
+    const courseModal = document.getElementById('courseModal');
+    const courseForm = document.getElementById('courseForm');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const modalTitle = document.getElementById('modalTitle');
+    const searchCourses = document.getElementById('searchCourses');
+    const filterSemester = document.getElementById('filterSemester');
+    const filterGrade = document.getElementById('filterGrade');
+    const toast = document.getElementById('toast');
+    const gradeSelect = document.getElementById('grade');
+    const gpaInput = document.getElementById('gpa');
+    const gpaRangeHint = document.getElementById('gpaRangeHint');
+    const notesInput = document.getElementById('notes');
+    const semesterYear1 = document.getElementById('semesterYear1');
+    const semesterYear2 = document.getElementById('semesterYear2');
+    const semesterTerm = document.getElementById('semesterTerm');
+    const semesterError = document.getElementById('semesterError');
+    const isHonorCourse = document.getElementById('isHonorCourse');
+    const startSemester = document.getElementById('startSemester');
+    const endSemester = document.getElementById('endSemester');
+    const semesterRangeError = document.getElementById('semesterRangeError'); // 新增：学期范围错误提示
+    
+    // 初始化事件监听器
+    function initEventListeners() {
+      console.log('Initializing event listeners');
+      
+      // 文件上传
+      fileInput.addEventListener('change', handleFileUpload);
+      
+      // 清除所有数据
+      clearDataBtn.addEventListener('click', clearAllData);
+      
+      // 添加课程按钮
+      addCourseBtn.addEventListener('click', openAddCourseModal);
+      
+      // 取消按钮
+      cancelBtn.addEventListener('click', closeModal);
+      
+      // 课程表单提交
+      courseForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        handleCourseFormSubmit();
+      });
+      
+      // 搜索和筛选
+      searchCourses.addEventListener('input', filterCourses);
+      filterSemester.addEventListener('change', filterCourses);
+      filterGrade.addEventListener('change', filterCourses);
+      
+      // 学期范围选择 - 修改为验证函数
+      startSemester.addEventListener('change', validateSemesterRange);
+      endSemester.addEventListener('change', validateSemesterRange);
+      
+      // 点击模态框外部关闭
+      courseModal.addEventListener('click', (e) => {
+        if (e.target === courseModal) closeModal();
+      });
+      
+      // 成绩选择变化处理
+      gradeSelect.addEventListener('change', handleGradeChange);
+      
+      // 学期年份输入处理
+      semesterYear1.addEventListener('input', handleYear1Change);
+      semesterTerm.addEventListener('change', validateSemester);
+    }
+    
+    // 处理学年1输入变化，自动计算学年2
+    function handleYear1Change() {
+      const year1 = parseInt(semesterYear1.value);
+      
+      if (!isNaN(year1) && year1 >= 2000 && year1 <= 2100) {
+        semesterYear2.value = year1 + 1;
+        semesterYear1.classList.remove('input-error');
+        semesterYear2.classList.remove('input-error');
+        semesterError.classList.add('hidden');
+      } else {
+        semesterYear2.value = '';
+        validateSemester();
+      }
+    }
+    
+    // 验证学期格式
+    function validateSemester() {
+      const year1 = parseInt(semesterYear1.value);
+      const year2 = parseInt(semesterYear2.value);
+      const term = semesterTerm.value;
+      
+      // 检查年份是否连续
+      if (isNaN(year1) || isNaN(year2) || year2 !== year1 + 1) {
+        semesterYear1.classList.add('input-error');
+        semesterYear2.classList.add('input-error');
+        semesterError.classList.remove('hidden');
+        semesterError.textContent = 'Please enter valid consecutive years (e.g., 2023 and 2024)';
+        return false;
+      }
+      
+      // 检查是否选择了学期
+      if (!term) {
+        semesterYear1.classList.remove('input-error');
+        semesterYear2.classList.remove('input-error');
+        semesterError.classList.remove('hidden');
+        semesterError.textContent = 'Please select a term (1, 暑期, or 2)';
+        return false;
+      }
+      
+      // 所有验证通过
+      semesterYear1.classList.remove('input-error');
+      semesterYear2.classList.remove('input-error');
+      semesterError.classList.add('hidden');
+      return true;
+    }
+    
+    // 验证学期范围是否有效（起始学期 <= 结束学期）
+    function validateSemesterRange() {
+      const start = startSemester.value;
+      const end = endSemester.value;
+      
+      // 当选择"所有学期"时不验证
+      if (start === 'all' || end === 'all') {
+        semesterRangeError.classList.add('hidden');
+        startSemester.classList.remove('input-error');
+        endSemester.classList.remove('input-error');
+        renderDashboard();
+        return true;
+      }
+      
+      // 比较学期
+      const comparison = compareSemesters(start, end);
+      
+      if (comparison > 0) {
+        // 起始学期在结束学期之后，显示错误
+        semesterRangeError.classList.remove('hidden');
+        startSemester.classList.add('input-error');
+        endSemester.classList.add('input-error');
+        return false;
+      } else {
+        // 学期范围有效
+        semesterRangeError.classList.add('hidden');
+        startSemester.classList.remove('input-error');
+        endSemester.classList.remove('input-error');
+        renderDashboard();
+        return true;
+      }
+    }
+    
+    // 从输入获取完整的学期字符串
+    function getSemesterString() {
+      const year1 = semesterYear1.value;
+      const year2 = semesterYear2.value;
+      const term = semesterTerm.value;
+      
+      if (year1 && year2 && term) {
+        return `${year1}-${year2} ${term}`;
+      }
+      return '';
+    }
+    
+    // 解析学期字符串为组件
+    function parseSemesterString(semester) {
+      if (!semester) return { year1: '', year2: '', term: '' };
+      
+      const parts = semester.split(' ');
+      const years = parts[0] ? parts[0].split('-') : [];
+      
+      return {
+        year1: years[0] || '',
+        year2: years[1] || '',
+        term: parts[1] || ''
+      };
+    }
+    
+    // 比较两个学期的先后顺序
+    function compareSemesters(a, b) {
+      const aParts = parseSemesterString(a);
+      const bParts = parseSemesterString(b);
+      
+      // 按年份排序
+      if (aParts.year1 !== bParts.year1) {
+        return aParts.year1.localeCompare(bParts.year1);
+      }
+      
+      // 按学期排序：1 < 暑期 < 2
+      const getTermOrder = (term) => {
+        if (term === '1') return 1;
+        if (term === '暑期') return 1.5; // 暑期排在1和2之间
+        if (term === '2') return 2;
+        return 3; // 其他情况排在最后
+      };
+      
+      const aTermOrder = getTermOrder(aParts.term);
+      const bTermOrder = getTermOrder(bParts.term);
+      
+      return aTermOrder - bTermOrder;
+    }
+    
+    // 检查学期是否在范围内
+    function isSemesterInRange(semester, start, end) {
+      if (start === 'all' && end === 'all') return true;
+      
+      if (start === 'all') return compareSemesters(semester, end) <= 0;
+      if (end === 'all') return compareSemesters(semester, start) >= 0;
+      
+      return compareSemesters(semester, start) >= 0 && compareSemesters(semester, end) <= 0;
+    }
+    
+    // 获取当前选择的学期范围内的数据
+    function getFilteredDataBySemesterRange() {
+      const start = startSemester.value;
+      const end = endSemester.value;
+      
+      // 如果学期范围无效，返回所有数据
+      if (start !== 'all' && end !== 'all' && compareSemesters(start, end) > 0) {
+        return rawData;
+      }
+      
+      return rawData.filter(item => isSemesterInRange(item.semester, start, end));
+    }
+    
+    // 处理成绩选择变化
+    function handleGradeChange() {
+      const selectedGrade = gradeSelect.value;
+      const isEditing = !!document.getElementById('courseId').value;
+      const currentGpa = isEditing ? parseFloat(gpaInput.value) : null;
+      
+      if (!selectedGrade) {
+        gpaInput.value = '';
+        gpaInput.disabled = false;
+        gpaRangeHint.textContent = 'Please select a grade first';
+        return;
+      }
+      
+      const gradeInfo = gradeGpaMap[selectedGrade];
+      
+      if (gradeInfo.isPnp) {
+        // PNP课程没有GPA
+        gpaInput.value = '';
+        gpaInput.disabled = true;
+        gpaRangeHint.textContent = 'PNP courses do not have GPA';
+      } else {
+        // 对于有等级的课程
+        if (gradeInfo.min === gradeInfo.max) {
+          // 此成绩有固定GPA - 禁用输入
+          gpaInput.value = gradeInfo.min.toFixed(3);
+          gpaInput.disabled = true;
+          gpaRangeHint.textContent = `Fixed GPA: ${gradeInfo.min.toFixed(3)}`;
+        } else {
+          // 此成绩有GPA范围 - 允许输入
+          gpaInput.disabled = false;
+          
+          if (isEditing && !isNaN(currentGpa)) {
+            // 编辑时显示当前GPA和范围
+            gpaRangeHint.textContent = `Current: ${currentGpa.toFixed(3)} | Valid range: ${gradeInfo.min.toFixed(3)} - ${gradeInfo.max.toFixed(3)}`;
+          } else {
+            gpaRangeHint.textContent = `Valid GPA range: ${gradeInfo.min.toFixed(3)} - ${gradeInfo.max.toFixed(3)}`;
+          }
+        }
+      }
+    }
+    
+    // 验证GPA是否与所选成绩匹配
+    function validateGpa(grade, gpaValue) {
+      if (!grade || !gradeGpaMap.hasOwnProperty(grade)) {
+        return { valid: false, reason: 'Invalid grade' };
+      }
+      
+      const gradeInfo = gradeGpaMap[grade];
+      
+      // 特殊处理：CSV中P/NP允许GPA=0（表示无GPA）
+      if (['P', 'NP'].includes(grade) && gpaValue === 0) {
+        return { valid: true };
+      }
+      
+      // PNP课程不应有GPA
+      if (gradeInfo.isPnp) {
+        if (gpaValue === null || gpaValue === '' || isNaN(gpaValue) || gpaValue === 0) {
+          return { valid: true };
+        } else {
+          return { valid: false, reason: 'PNP courses should not have a GPA' };
+        }
+      }
+      
+      // 对于有等级的课程，检查GPA是否在范围内
+      if (gpaValue === null || isNaN(gpaValue)) {
+        return { valid: false, reason: 'GPA is required for graded courses' };
+      }
+      
+      // 允许微小的浮点误差
+      const isInRange = gpaValue >= gradeInfo.min - 0.001 && gpaValue <= gradeInfo.max + 0.001;
+      
+      if (!isInRange) {
+        return { 
+          valid: false, 
+          reason: `GPA must be between ${gradeInfo.min.toFixed(3)} and ${gradeInfo.max.toFixed(3)} for ${grade}`
+        };
+      }
+      
+      return { valid: true };
+    }
+    
+    // 处理文件上传
+    function handleFileUpload(e) {
+      console.log('Starting file upload');
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      showToast('Importing data...', 'info');
+      
+      Papa.parse(file, {
+        header: false,
+        skipEmptyLines: true,
+        complete: function(res) {
+          try {
+            console.log('CSV parsing complete', res);
+            const rows = res.data;
+            // 跳过标题行
+            const newCourses = [];
+            let errorCount = 0;
+            
+            rows.slice(1).forEach((cols, index) => {
+              // 假设CSV格式：学期, ?, ?, 课程名称, 学分, 成绩, GPA, 备注
+              const semester = cols[0] ? cols[0].trim() : '';
+              const grade = cols[5] ? cols[5].trim() : '';
+              const gpaValue = cols[6] ? parseFloat(cols[6]) : null;
+              let isValid = true;
+              let semesterValid = true;
+              let errorReason = '';
+              
+              // 验证学期格式，支持中文"暑期"
+              const semesterPattern = /^\d{4}-\d{4}\s(1|2|暑期)$/;
+              if (!semesterPattern.test(semester)) {
+                semesterValid = false;
+                isValid = false;
+                errorReason = 'Invalid semester format';
+              }
+              
+              // 验证成绩和GPA
+              const gpaValidation = validateGpa(grade, gpaValue);
+              if (!gpaValidation.valid) {
+                isValid = false;
+                errorReason = errorReason ? `${errorReason}; ${gpaValidation.reason}` : gpaValidation.reason;
+              }
+              
+              // 简化错误原因
+              errorReason = simplifyErrorReason(errorReason);
+              
+              if (!isValid) errorCount++;
+              
+              // 自动为NP/F成绩添加Fail备注
+              let notes = cols[7] ? cols[7].trim() : '';
+              if (grade === 'F' || grade === 'NP') {
+                notes = notes ? `${notes} (Fail)` : 'Fail';
+              }
+              
+              // 添加错误原因到备注
+              if (!isValid) {
+                notes = notes ? `${notes} [Invalid: ${errorReason}]` : `[Invalid: ${errorReason}]`;
+              }
+              
+              // 检查是否为荣誉课程
+              const isHonor = cols[3] && cols[3].includes('(H)');
+              const courseName = isHonor ? cols[3].replace('(H)', '').trim() : cols[3] || '';
+              
+              newCourses.push({
+                id: currentId++,
+                semester: semester,
+                course: courseName,
+                credit: parseFloat(cols[4]) || 0,
+                grade: grade,
+                gpa: gradeGpaMap[grade]?.isPnp ? null : gpaValue || 0,
+                notes: notes,
+                error: !isValid,
+                semesterError: !semesterValid,
+                isHonor: isHonor
+              });
+            });
+            
+            rawData = [...rawData, ...newCourses];
+            renderDashboard();
+            
+            if (errorCount > 0) {
+              showToast(`Imported ${newCourses.length} courses, ${errorCount} with validation errors`, 'error');
+            } else {
+              showToast(`Successfully imported ${newCourses.length} courses`, 'success');
+            }
+          } catch (error) {
+            console.error('Import error:', error);
+            showToast('Error importing data. Please check CSV format.', 'error');
+          }
+        },
+        error: function(err) {
+          console.error('CSV parsing error:', err);
+          showToast('Error reading file. Please try again.', 'error');
+        }
+      });
+      
+      // 重置文件输入以允许重新上传同一文件
+      fileInput.value = '';
+    }
+    
+    // 简化错误原因描述
+    function simplifyErrorReason(reason) {
+      if (!reason) return '';
+      
+      // 替换冗长的描述为简洁版本
+      let simplified = reason
+        .replace('Invalid semester format. Should be "YYYY-YYYY Term"', 'Invalid semester')
+        .replace('PNP courses should not have a GPA', 'PNP with GPA')
+        .replace('GPA is required for graded courses', 'Missing GPA')
+        .replace(/GPA must be between [\d.]+ and [\d.]+ for ([A-F][+-]?)/, 'GPA out of range for $1');
+      
+      return simplified;
+    }
+    
+    // 清除所有数据
+    function clearAllData() {
+      console.log('Requesting to clear all data');
+      if (rawData.length === 0) {
+        showToast('No data to clear', 'info');
+        return;
+      }
+      
+      if (confirm('Are you sure you want to clear all course data? This action cannot be undone.')) {
+        rawData = [];
+        renderDashboard();
+        showToast('All data cleared successfully', 'success');
+      }
+    }
+    
+    // 打开添加新课程的模态框
+    function openAddCourseModal() {
+      console.log('Opening add course modal');
+      modalTitle.textContent = 'Add New Course';
+      courseForm.reset();
+      document.getElementById('courseId').value = '';
+      semesterYear2.value = '';
+      semesterYear1.classList.remove('input-error');
+      semesterYear2.classList.remove('input-error');
+      semesterError.classList.add('hidden');
+      isHonorCourse.checked = false;
+      
+      // 设置默认年份为当前年份
+      const currentYear = new Date().getFullYear();
+      semesterYear1.value = currentYear;
+      handleYear1Change(); // 自动计算year2
+      
+      handleGradeChange(); // 基于默认成绩重置GPA字段
+      courseModal.classList.remove('hidden');
+      setTimeout(() => {
+        courseModal.querySelector('div').classList.add('scale-100');
+        courseModal.querySelector('div').classList.remove('scale-95');
+      }, 10);
+    }
+    
+    // 打开编辑现有课程的模态框
+    function openEditCourseModal(id) {
+      console.log('Opening edit course modal, ID:', id);
+      const course = rawData.find(item => item.id === id);
+      if (!course) {
+        showToast('Course not found', 'error');
+        return;
+      }
+      
+      modalTitle.textContent = 'Edit Course';
+      document.getElementById('courseId').value = course.id;
+      
+      // 解析学期为组件
+      const semesterParts = parseSemesterString(course.semester);
+      semesterYear1.value = semesterParts.year1;
+      semesterYear2.value = semesterParts.year2;
+      semesterTerm.value = semesterParts.term;
+      
+      document.getElementById('course').value = course.course;
+      document.getElementById('credit').value = course.credit;
+      document.getElementById('grade').value = course.grade;
+      document.getElementById('gpa').value = course.gpa !== null ? course.gpa : '';
+      isHonorCourse.checked = course.isHonor || false;
+      
+      // 移除错误标记以避免干扰编辑
+      let notes = course.notes || '';
+      notes = notes.replace(/\s*\[(Invalid|Error):[^\]]*\]\s*/g, '').trim();
+      document.getElementById('notes').value = notes;
+      
+      semesterYear1.classList.remove('input-error');
+      semesterYear2.classList.remove('input-error');
+      semesterError.classList.add('hidden');
+      
+      // 触发成绩变化处理程序以设置适当的GPA状态
+      handleGradeChange();
+      
+      courseModal.classList.remove('hidden');
+      setTimeout(() => {
+        courseModal.querySelector('div').classList.add('scale-100');
+        courseModal.querySelector('div').classList.remove('scale-95');
+      }, 10);
+    }
+    
+    // 关闭模态框
+    function closeModal() {
+      console.log('Closing modal');
+      courseModal.querySelector('div').classList.remove('scale-100');
+      courseModal.querySelector('div').classList.add('scale-95');
+      setTimeout(() => {
+        courseModal.classList.add('hidden');
+      }, 200);
+    }
+    
+    // 处理课程表单提交
+    function handleCourseFormSubmit() {
+      console.log('Course form submitted');
+      
+      try {
+        // 首先验证学期格式
+        if (!validateSemester()) {
+          return;
+        }
+        
+        const id = document.getElementById('courseId').value;
+        const grade = document.getElementById('grade').value;
+        const gpaValue = document.getElementById('gpa').value ? parseFloat(document.getElementById('gpa').value) : null;
+        const semester = getSemesterString();
+        const honor = isHonorCourse.checked;
+        
+        // 验证GPA
+        const gpaValidation = validateGpa(grade, gpaValue);
+        if (!gpaValidation.valid) {
+          showToast(gpaValidation.reason, 'error');
+          return;
+        }
+        
+        // 处理Fail备注 - 改进版本确保能正确移除
+        let notes = document.getElementById('notes').value || '';
+        if (grade === 'F' || grade === 'NP') {
+          // 如果有备注但没有"Fail"，添加它
+          if (!notes.includes('Fail')) {
+            notes = notes ? `${notes} (Fail)` : 'Fail';
+          }
+        } else {
+          // 如果不是不及格成绩但备注包含"Fail"，移除它
+          // 使用更强大的正则表达式确保所有形式的Fail标记都被移除
+          notes = notes.replace(/\s*\(?Fail\)?\s*/gi, '').trim();
+          // 移除可能的空括号
+          notes = notes.replace(/\(\s*\)/g, '').trim();
+        }
+        
+        const courseData = {
+          semester: semester,
+          course: document.getElementById('course').value,
+          credit: parseFloat(document.getElementById('credit').value) || 0,
+          grade: grade,
+          gpa: gradeGpaMap[grade].isPnp ? null : gpaValue,
+          notes: notes,
+          error: false, // 手动添加的课程已验证
+          semesterError: false,
+          isHonor: honor
+        };
+        
+        if (id) {
+          // 编辑现有课程
+          const index = rawData.findIndex(item => item.id === parseInt(id));
+          if (index !== -1) {
+            rawData[index] = { ...rawData[index], ...courseData };
+            showToast('Course updated successfully', 'success');
+          }
+        } else {
+          // 添加新课程
+          rawData.push({ ...courseData, id: currentId++ });
+          showToast('Course added successfully', 'success');
+        }
+        
+        // 更新仪表板并关闭模态框
+        renderDashboard();
+        closeModal();
+      } catch (error) {
+        console.error('Error saving course:', error);
+        showToast('Error saving course', 'error');
+      }
+    }
+    
+    // 删除课程
+    function deleteCourse(id) {
+      console.log('Deleting course, ID:', id);
+      try {
+        const courseIndex = rawData.findIndex(item => item.id === id);
+        if (courseIndex === -1) {
+          showToast('Course not found', 'error');
+          return;
+        }
+        
+        if (confirm('Are you sure you want to delete this course?')) {
+          rawData.splice(courseIndex, 1);
+          renderDashboard();
+          showToast('Course deleted successfully', 'success');
+        }
+      } catch (error) {
+        console.error('Error deleting course:', error);
+        showToast('Error deleting course', 'error');
+      }
+    }
+    
+    // 根据搜索、学期和成绩筛选课程
+    function filterCourses() {
+      const searchTerm = searchCourses.value.toLowerCase();
+      const semesterFilter = filterSemester.value;
+      const gradeFilter = filterGrade.value;
+      
+      // 先应用学期范围筛选，再应用其他筛选条件
+      const rangeFilteredData = getFilteredDataBySemesterRange();
+      
+      const filteredData = rangeFilteredData.filter(item => {
+        const matchesSearch = item.course.toLowerCase().includes(searchTerm) || 
+                             item.grade.toLowerCase().includes(searchTerm) ||
+                             item.notes.toLowerCase().includes(searchTerm);
+        const matchesSemester = semesterFilter === 'all' || item.semester === semesterFilter;
+        const matchesGrade = gradeFilter === 'all' || item.grade === gradeFilter;
+        
+        return matchesSearch && matchesSemester && matchesGrade;
+      });
+      
+      populateTable(filteredData);
+    }
+    
+    // 渲染整个仪表板
+    function renderDashboard() {
+      console.log('Rendering dashboard, number of courses:', rawData.length);
+      try {
+        // 排序数据
+        sortData();
+        
+        // 更新所有组件
+        const rangeFilteredData = getFilteredDataBySemesterRange();
+        populateTable(rangeFilteredData);
+        updateStatistics(rangeFilteredData);
+        updateSemesterFilters();
+        drawSemesterChart(rangeFilteredData);
+        drawGpaDistributionChart(rangeFilteredData);
+        drawGradeDistributionChart(rangeFilteredData);
+      } catch (error) {
+        console.error('Error rendering dashboard:', error);
+        showToast('Error updating dashboard', 'error');
+      }
+    }
+    
+    // 排序数据 - 按照等级 → 绩点 → 时间（1 < 暑期 < 2）的顺序
+    function sortData() {
+      rawData.sort((a, b) => {
+        // 1. 按等级排序（使用gradeGpaMap中的sortOrder）
+        const aGradeOrder = gradeGpaMap[a.grade]?.sortOrder || 99;
+        const bGradeOrder = gradeGpaMap[b.grade]?.sortOrder || 99;
+        
+        if (aGradeOrder !== bGradeOrder) {
+          return aGradeOrder - bGradeOrder;
+        }
+        
+        // 2. 等级相同按绩点从高到低排序
+        // 对于PNP课程，绩点为null，将它们放在一起
+        if (!gradeGpaMap[a.grade]?.isPnp && !gradeGpaMap[b.grade]?.isPnp) {
+          if (a.gpa !== b.gpa) {
+            return b.gpa - a.gpa; // 降序排列
+          }
+        }
+        
+        // 3. 绩点相同按学期排序（1 < 暑期 < 2）
+        const semesterComparison = compareSemesters(a.semester, b.semester);
+        if (semesterComparison !== 0) {
+          return semesterComparison;
+        }
+        
+        // 4. 学期相同按课程名称排序
+        return a.course.localeCompare(b.course);
+      });
+    }
+    
+    // 填充课程表格
+    function populateTable(data) {
+      const tbody = document.getElementById('dataTableBody');
+      tbody.innerHTML = '';
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="px-6 py-12 text-center text-gray-500">
+              <i class="fa fa-file-text-o text-4xl mb-3 block opacity-30"></i>
+              <p>No course data</p>
+              <p class="text-sm mt-1">Upload a CSV file or add courses manually</p>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      data.forEach(item => {
+        const tr = document.createElement('tr');
+        // 为Fail课程添加红色底纹
+        let rowClasses = [];
+        if (item.grade === 'F' || item.grade === 'NP') {
+          rowClasses.push('fail-row');
+        } else if (item.error) {
+          rowClasses.push('error-row');
+        } else if (item.grade === 'P') {
+          rowClasses.push('hover:bg-purple-50 transition-colors');
+        } else {
+          rowClasses.push('hover:bg-gray-50 transition-colors');
+        }
+        tr.className = rowClasses.join(' ');
+        
+        // 荣誉课程标记
+        const honorBadge = item.isHonor ? 
+          '<span class="ml-2 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Honor</span>' : '';
+        
+        // 状态列内容
+        const statusContent = item.error ? 
+          `<span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Invalid</span>` : 
+          '<span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Valid</span>';
+        
+        tr.innerHTML = `
+          <td class="px-6 py-4 whitespace-nowrap ${item.semesterError ? 'text-red-600 font-medium' : ''}">${item.semester}</td>
+          <td class="px-6 py-4">
+            ${item.course}
+            ${honorBadge}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">${item.credit}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${item.grade}</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            ${item.grade === 'P' || item.grade === 'NP' ? '-' : 
+              (item.error ? '<span class="text-red-600">Invalid</span>' : 
+                `<span class="px-2 py-1 rounded-full text-xs font-medium ${getGpaColorClass(item.gpa)}">
+                  ${item.gpa !== null ? item.gpa.toFixed(3) : ''}
+                </span>`)
+            }
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${(item.grade === 'P' || item.grade === 'NP') ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
+              ${(item.grade === 'P' || item.grade === 'NP') ? 'PNP' : 'GPA'}
+            </span>
+          </td>
+          <td class="px-6 py-4">${item.notes || '-'}</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            ${statusContent}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <button onclick="openEditCourseModal(${item.id})" class="text-primary hover:text-blue-700 mr-3">
+              <i class="fa fa-pencil"></i>
+            </button>
+            <button onclick="deleteCourse(${item.id})" class="text-red-500 hover:text-red-700">
+              <i class="fa fa-trash"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    
+    // 根据GPA值获取CSS类
+    function getGpaColorClass(gpa) {
+      if (gpa >= 3.5) return 'bg-green-100 text-green-800';
+      if (gpa >= 3.0) return 'bg-blue-100 text-blue-800';
+      if (gpa >= 2.5) return 'bg-yellow-100 text-yellow-800';
+      if (gpa >= 2.0) return 'bg-orange-100 text-orange-800';
+      return 'bg-red-100 text-red-800';
+    }
+    
+    // 更新统计摘要 - 平均绩点保留到小数点后三位
+    function updateStatistics(data) {
+      const totalCourses = data.length;
+      const pnpCourses = data.filter(r => r.grade === 'P' || r.grade === 'NP').length;
+      const gpaCourses = totalCourses - pnpCourses;
+      const honorCourses = data.filter(r => r.isHonor).length;
+      const totalCredits = data.reduce((sum, r) => sum + r.credit, 0).toFixed(1);
+      
+      // 计算GPA课程的加权平均值，保留三位小数
+      const validGpaCourses = data.filter(r => 
+        !r.error && 
+        r.grade !== 'P' && 
+        r.grade !== 'NP' && 
+        r.gpa !== null && 
+        !isNaN(r.gpa)
+      );
+      
+      const totalGpaCredits = validGpaCourses.reduce((sum, r) => sum + r.credit, 0);
+      const weightedSum = validGpaCourses.reduce((sum, r) => sum + r.gpa * r.credit, 0);
+      const avgGpa = totalGpaCredits > 0 ? (weightedSum / totalGpaCredits).toFixed(3) : 'N/A';
+      
+      // 添加动画效果
+      const statsElements = [
+        document.getElementById('totalCourses'),
+        document.getElementById('gpaCourses'),
+        document.getElementById('pnpCourses'),
+        document.getElementById('honorCourses'),
+        document.getElementById('totalCredits'),
+        document.getElementById('avgGpa')
+      ];
+      
+      statsElements.forEach(el => el.classList.add('fade-in'));
+      setTimeout(() => statsElements.forEach(el => el.classList.remove('fade-in')), 500);
+      
+      // 更新统计数字
+      document.getElementById('totalCourses').textContent = totalCourses;
+      document.getElementById('gpaCourses').textContent = gpaCourses;
+      document.getElementById('pnpCourses').textContent = pnpCourses;
+      document.getElementById('honorCourses').textContent = honorCourses;
+      document.getElementById('totalCredits').textContent = totalCredits;
+      document.getElementById('avgGpa').textContent = avgGpa;
+    }
+    
+    // 更新学期筛选选项
+    function updateSemesterFilters() {
+      const semesters = [...new Set(rawData.map(item => item.semester))].sort(compareSemesters);
+      
+      // 保存当前选择的值
+      const currentFilterValue = filterSemester.value;
+      const currentStartValue = startSemester.value;
+      const currentEndValue = endSemester.value;
+      
+      // 更新所有学期筛选器
+      [filterSemester, startSemester, endSemester].forEach(select => {
+        // 清除除"所有学期"外的现有选项
+        while (select.options.length > 1) {
+          select.remove(1);
+        }
+        
+        // 添加学期选项
+        semesters.forEach(semester => {
+          const option = document.createElement('option');
+          option.value = semester;
+          option.textContent = semester;
+          select.appendChild(option);
+        });
+      });
+      
+      // 恢复之前的选择（如果仍然有效）
+      if (currentFilterValue && [...filterSemester.options].some(o => o.value === currentFilterValue)) {
+        filterSemester.value = currentFilterValue;
+      }
+      
+      if (currentStartValue && [...startSemester.options].some(o => o.value === currentStartValue)) {
+        startSemester.value = currentStartValue;
+      }
+      
+      if (currentEndValue && [...endSemester.options].some(o => o.value === currentEndValue)) {
+        endSemester.value = currentEndValue;
+      }
+    }
+    
+    // 绘制学期GPA图表
+    function drawSemesterChart(data) {
+      const map = {};
+      
+      // 只包含有效的GPA课程
+      data.filter(r => 
+        !r.error && 
+        r.grade !== 'P' && 
+        r.grade !== 'NP' && 
+        r.gpa !== null && 
+        !isNaN(r.gpa)
+      ).forEach(({ semester, gpa, credit }) => {
+        if (!map[semester]) {
+          map[semester] = { sum: 0, totalCredits: 0 };
+        }
+        map[semester].sum += gpa * credit;
+        map[semester].totalCredits += credit;
+      });
+      
+      const semesters = Object.keys(map).sort(compareSemesters);
+      const avgGpas = semesters.map(s => map[s].totalCredits > 0 ? 
+        (map[s].sum / map[s].totalCredits).toFixed(2) : 0);
+      
+      const ctx = document.getElementById('semesterGpaChart').getContext('2d');
+      
+      // 销毁现有图表
+      if (window.semChart) {
+        window.semChart.destroy();
+      }
+      
+      // 没有数据，不创建图表
+      if (semesters.length === 0) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        return;
+      }
+      
+      // 创建新图表
+      window.semChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: semesters,
+          datasets: [{
+            label: 'Semester GPA',
+            data: avgGpas,
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 2,
+            pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1000,
+            easing: 'easeOutQuart'
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `GPA: ${context.raw}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 4,
+              ticks: {
+                stepSize: 0.5
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // 绘制GPA分布图表
+    function drawGpaDistributionChart(data) {
+      const map = {};
+      
+      // 创建GPA分布范围
+      for (let i = 0; i < 8; i++) {
+        const range = `${(i * 0.5).toFixed(1)}-${((i + 1) * 0.5).toFixed(1)}`;
+        map[range] = 0;
+      }
+      
+      // 只计算有效的GPA课程
+      data.filter(r => 
+        !r.error && 
+        r.grade !== 'P' && 
+        r.grade !== 'NP' && 
+        r.gpa !== null && 
+        !isNaN(r.gpa)
+      ).forEach(({ gpa }) => {
+        if (gpa >= 0 && gpa <= 4) {
+          const binIndex = Math.min(Math.floor(gpa / 0.5), 7);
+          const range = `${(binIndex * 0.5).toFixed(1)}-${((binIndex + 1) * 0.5).toFixed(1)}`;
+          map[range]++;
+        }
+      });
+      
+      const gpaRanges = Object.keys(map);
+      const counts = gpaRanges.map(r => map[r]);
+      
+      const ctx = document.getElementById('gpaDistributionChart').getContext('2d');
+      
+      // 销毁现有图表
+      if (window.distChart) {
+        window.distChart.destroy();
+      }
+      
+      // 没有数据，不创建图表
+      if (counts.every(count => count === 0)) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        return;
+      }
+      
+      // 创建新图表
+      window.distChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: gpaRanges,
+          datasets: [{
+            label: 'Number of Courses',
+            data: counts,
+            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+            borderColor: 'rgba(16, 185, 129, 1)',
+            borderWidth: 1,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1000,
+            easing: 'easeOutQuart'
+          },
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // 绘制成绩分布图表
+    function drawGradeDistributionChart(data) {
+      const map = {};
+      
+      // 初始化所有可能的成绩
+      Object.keys(gradeGpaMap).forEach(grade => {
+        map[grade] = 0;
+      });
+      
+      // 计算有效课程的成绩分布
+      data.filter(r => !r.error).forEach(({ grade }) => {
+        if (map.hasOwnProperty(grade)) {
+          map[grade]++;
+        }
+      });
+      
+      const grades = Object.keys(map).filter(grade => map[grade] > 0);
+      const counts = grades.map(grade => map[grade]);
+      const colors = grades.map(grade => gradeGpaMap[grade].color);
+      
+      const ctx = document.getElementById('gradeDistributionChart').getContext('2d');
+      
+      // 销毁现有图表
+      if (window.gradeChart) {
+        window.gradeChart.destroy();
+      }
+      
+      // 没有数据，不创建图表
+      if (grades.length === 0) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        return;
+      }
+      
+      // 创建新图表
+      window.gradeChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: grades,
+          datasets: [{
+            data: counts,
+            backgroundColor: colors,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 1000,
+            easing: 'easeOutQuart'
+          },
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 12,
+                padding: 15
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = Math.round((value / total) * 100);
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // 显示通知提示
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      
+      // 根据类型设置样式
+      if (type === 'success') {
+        toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg bg-green-500 text-white transform translate-y-20 opacity-0 transition-all duration-300 z-50';
+      } else if (type === 'error') {
+        toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg bg-red-500 text-white transform translate-y-20 opacity-0 transition-all duration-300 z-50';
+      } else {
+        toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg bg-blue-500 text-white transform translate-y-20 opacity-0 transition-all duration-300 z-50';
+      }
+      
+      toast.classList.remove('hidden');
+      
+      // 显示提示
+      setTimeout(() => {
+        toast.classList.remove('translate-y-20', 'opacity-0');
+      }, 10);
+      
+      // 3秒后隐藏
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 300);
+      }, 3000);
+    }
+    
+    // 初始化应用程序
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('Initializing application');
+      try {
+        // 确保函数在全局范围内可用
+        window.openEditCourseModal = openEditCourseModal;
+        window.deleteCourse = deleteCourse;
+        
+        initEventListeners();
+        renderDashboard();
+      } catch (error) {
+        console.error('Initialization error:', error);
+        showToast('Error initializing application', 'error');
+      }
+    });
+  </script>
+</body>
+</html>
